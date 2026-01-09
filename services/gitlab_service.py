@@ -88,7 +88,8 @@ class GitLabService:
     def _parse_project_path_from_mr_url(self, url):
         """Parses the project path from a GitLab Merge Request URL."""
         # This regex is designed to capture the full path including groups/subgroups
-        match = re.search(r'https?://[^/]+/(.*?)/-/merge_requests/\d+', url)
+        # This regex is now more flexible to handle both /-/merge_requests/ and /merge_requests/
+        match = re.search(r'https?://[^/]+/(.*?)(?:/-)?/merge_requests/\d+', url)
         return match.group(1) if match else None
 
     def _parse_project_path_from_commit_url(self, url):

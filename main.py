@@ -1,6 +1,11 @@
 import argparse
 import sys
 from urllib.parse import urlparse
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+# Suppress only the InsecureRequestWarning from urllib3 needed for self-signed certificates
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 import re
 from config import settings
@@ -12,7 +17,11 @@ from services.git_service import GitService
 def extract_mr_url(text):
     """Extracts the first GitLab Merge Request URL from a given text."""
     # Simplified, more robust regex to find MR URLs inside Jira's link format.
-    pattern = r"\[?(https?://[^\]|]+/-/merge_requests/\d+)"
+    # This pattern is more flexible:
+    # - It can handle an optional "mr:" prefix.
+    # - It handles both "/-/merge_requests/" and "/merge_requests/".
+    # - It captures the URL correctly whether it's in Jira's link format or plain text.
+    pattern = r"\[?(https?://[^\]|]+(?:/-)?/merge_requests/\d+)"
     match = re.search(pattern, text)
     return match.group(1) if match else None
 
@@ -46,8 +55,7 @@ def format_comment(analysis_result, url, assignee_name):
     link_type = "Commit" if "/commit/" in url else "Merge Request"
 
     # Main header and link
-    comment = f"Halo [~{assignee_name}],\n\n"
-    comment += f"h2. 🤖 Tinjauan Kode Otomatis oleh AI\n"
+    comment = f"h2. 🤖 Hasil Code Review\n"
     comment += f"*{link_type}*: [{url}|{url}]\n\n"
     
     # Change Summary
@@ -55,13 +63,31 @@ def format_comment(analysis_result, url, assignee_name):
     comment += f"{analysis_result.get('change_summary', 'Tidak ada ringkasan perubahan.')}\n\n"
     
     # Detailed Analysis
-    comment += f"h3. Analisis Mendalam\n"
     analysis = analysis_result.get('analysis', {})
     
-    comment += format_analysis_category("Logika & Fungsionalitas", analysis.get("logic_and_functionality", []))
-    comment += format_analysis_category("Keterbacaan & Pemeliharaan", analysis.get("readability_and_maintainability", []))
-    comment += format_analysis_category("Praktik Terbaik & Konvensi", analysis.get("best_practices_and_conventions", []))
-    comment += format_analysis_category("Potensi Peningkatan", analysis.get("potential_improvements", []))
+    # Format "Perubahan Diperlukan"
+    perubahan_diperlukan = analysis.get("perubahan_diperlukan", [])
+    if perubahan_diperlukan:
+        comment += f"h3. ⚠️ Perubahan Diperlukan\n"
+        for finding in perubahan_diperlukan:
+            file_info = finding.get('file', 'N/A')
+            line_info = finding.get('line')
+            location = f"`{file_info}:{line_info}`" if line_info else f"`{file_info}`"
+            comment += f"* {finding.get('comment', 'No comment provided.')} ({location})\n"
+            if 'rekomendasi' in finding:
+                comment += f"{{code}}\n{finding['rekomendasi']}\n{{code}}\n"
+        comment += "\n"
+
+    # Format "Sudah Baik"
+    sudah_baik = analysis.get("sudah_baik", [])
+    if sudah_baik:
+        comment += f"h3. ✅ Sudah Baik\n"
+        for finding in sudah_baik:
+            file_info = finding.get('file', 'N/A')
+            line_info = finding.get('line')
+            location = f"`{file_info}:{line_info}`" if line_info else f"`{file_info}`"
+            comment += f"* {finding.get('comment', 'No comment provided.')} ({location})\n"
+        comment += "\n"
     
     # Conclusion
     comment += f"h3. Kesimpulan\n"

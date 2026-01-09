@@ -13,9 +13,10 @@ GITLAB_SERVER = os.getenv("GITLAB_SERVER")
 GITLAB_PRIVATE_TOKEN = os.getenv("GITLAB_PRIVATE_TOKEN")
 
 # AI Model Configuration
-AI_SERVICE_PROVIDER = os.getenv("AI_SERVICE_PROVIDER", "gemini") # Default to 'gemini'
+AI_SERVICE_PROVIDER = os.getenv("AI_SERVICE_PROVIDER", "openai") # Default to 'openai'
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
 # Local Git Repository Path for cloning
 LOCAL_GIT_REPO_PATH = os.getenv("LOCAL_GIT_REPO_PATH", "temp_repos")
@@ -35,6 +36,7 @@ def validate_config():
         required_vars["GEMINI_API_KEY"] = GEMINI_API_KEY
     elif AI_SERVICE_PROVIDER == "openai":
         required_vars["OPENAI_API_KEY"] = OPENAI_API_KEY
+        # Base URL is optional, so we don't validate it
     else:
         raise ValueError(f"Unsupported AI_SERVICE_PROVIDER: {AI_SERVICE_PROVIDER}. Must be 'gemini' or 'openai'.")
 

@@ -3,6 +3,7 @@ import openai
 import json
 import re
 import os
+import certifi
 from config import settings
 
 class AIService:
@@ -17,13 +18,16 @@ class AIService:
             self.api_key = settings.GEMINI_API_KEY
             if not self.api_key:
                 raise ValueError("GEMINI_API_KEY is not set for Gemini provider.")
-            self.model_name = 'gemini-1.5-pro-latest'
+            self.model_name = 'gemini-pro'
             print("AIService initialized with Google Gemini (via REST API).")
         elif self.provider == "openai":
             self.api_key = settings.OPENAI_API_KEY
             if not self.api_key:
                 raise ValueError("OPENAI_API_KEY is not set for OpenAI provider.")
-            self.client = openai.OpenAI(api_key=self.api_key)
+            self.client = openai.OpenAI(
+                api_key=self.api_key,
+                base_url=settings.OPENAI_BASE_URL
+            )
             self.model_name = "gpt-4o-mini"
             print("AIService initialized with OpenAI.")
         else:
@@ -42,26 +46,25 @@ class AIService:
 
     def _clean_json_response(self, text):
         """Cleans the text to extract a valid JSON object."""
-        match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
+        # This regex is more robust and handles cases where the JSON is not perfectly formatted.
+        # It looks for a string that starts with { and ends with }, and is greedy.
+        match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
-            return match.group(1)
-        match = re.search(r'(\{.*?\})', text, re.DOTALL)
-        if match:
-            return match.group(1)
+            return match.group(0)
         return text
 
     def _call_gemini_api(self, prompt):
         """Makes a direct REST API call to the Gemini API."""
-        # Using v1beta as it's required for the latest models
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
         headers = {"Content-Type": "application/json"}
         data = {
             "contents": [{"parts": [{"text": prompt}]}],
-             "generationConfig": {
+            "generationConfig": {
                 "response_mime_type": "application/json",
             }
         }
-        response = requests.post(url, headers=headers, json=data)
+        # Use certifi's certificates for SSL verification
+        response = requests.post(url, headers=headers, json=data, verify=certifi.where())
         response.raise_for_status()
         return response.json()['candidates'][0]['content']['parts'][0]['text']
 
@@ -84,7 +87,8 @@ class AIService:
                 chat_completion = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=[{"role": "user", "content": full_prompt}],
-                    response_format={"type": "json_object"}
+                    response_format={"type": "json_object"},
+                    temperature=0.1
                 )
                 response_text = chat_completion.choices[0].message.content
 

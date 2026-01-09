@@ -1,5 +1,6 @@
 # HTTP Client
 requests
+certifi
 
 # Python-Jira Wrapper
 jira
