@@ -1,0 +1,22 @@
+# HTTP Client
+requests
+
+# Python-Jira Wrapper
+jira
+
+# Python-GitLab Wrapper
+python-gitlab
+
+# LLM Connectors
+google-genai
+openai
+# anthropic
+
+# Environment variable management
+python-dotenv
+
+# Testing framework
+pytest
+
+# CLI Framework (opsional, untuk CLI yang lebih canggih)
+# typer
