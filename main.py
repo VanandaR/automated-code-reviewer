@@ -128,23 +128,27 @@ def main_workflow(ticket_id):
     if hasattr(issue.fields, 'comment') and issue.fields.comment.comments:
         texts_to_search.extend([comment.body for comment in issue.fields.comment.comments])
 
-    gitlab_url = None
-    url_type = None
+    # Collect all URLs found, we'll use the LAST one
+    all_urls = []
     for text in texts_to_search:
-        # Prioritize MR URLs, then check for Commit URLs
+        # Find all MR URLs in this text
         mr_url = extract_mr_url(text)
         if mr_url:
-            gitlab_url = mr_url
-            url_type = "MR"
-            print(f"   Found MR URL: {gitlab_url}")
-            break
+            all_urls.append((mr_url, "MR"))
         
+        # Find all Commit URLs in this text
         commit_url = extract_commit_url(text)
         if commit_url:
-            gitlab_url = commit_url
-            url_type = "Commit"
-            print(f"   Found Commit URL: {gitlab_url}")
-            break
+            all_urls.append((commit_url, "Commit"))
+
+    gitlab_url = None
+    url_type = None
+    
+    if all_urls:
+        # Take the LAST URL found
+        gitlab_url, url_type = all_urls[-1]
+        print(f"   Found {len(all_urls)} URL(s), using last one:")
+        print(f"   {url_type} URL: {gitlab_url}")
 
     if not gitlab_url:
         print("--- EXIT: No GitLab URL found. ---")

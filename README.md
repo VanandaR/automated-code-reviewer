@@ -1,90 +1,111 @@
-# Asisten System Analyst AI
+# 🤖 Automated Code Reviewer
 
-## 1. Tentang Proyek
+Aplikasi CLI untuk mengotomatisasi code review menggunakan AI (Gemini/OpenAI). Mengekstrak link Merge Request atau Commit dari tiket Jira, menganalisis perubahan kode, dan mem-posting hasil review ke Jira.
 
-Asisten System Analyst AI adalah sebuah aplikasi Command-Line Interface (CLI) yang dirancang untuk mengotomatisasi proses tinjauan kode awal (*preliminary code review*).
-
-Aplikasi ini bekerja dengan mengekstrak link *Merge Request* (MR) atau *Commit* dari sebuah tiket Jira, menganalisis perubahan kode menggunakan model AI canggih (melalui OpenRouter), dan mem-posting hasilnya sebagai komentar yang terstruktur dan dapat ditindaklanjuti kembali ke tiket Jira tersebut.
-
-## 2. Fitur Utama
-
--   **Analisis Multi-Bahasa**: Secara otomatis mendeteksi bahasa (misalnya, Java, React) dalam *diff* dan menerapkan praktik terbaik yang relevan.
--   **Umpan Balik Dapat Ditindaklanjuti**: Memberikan rekomendasi perbaikan konkret dengan contoh kode yang siap disalin-tempel.
--   **Rekomendasi Otomatis**: Secara otomatis menyarankan "Naik Staging" atau "Revisi" berdasarkan hasil analisis.
--   **Format Komentar yang Disesuaikan**: Menghasilkan komentar Jira yang bersih, ringkas, dan dirancang untuk programmer.
--   **Dukungan OpenRouter**: Terintegrasi dengan OpenRouter untuk fleksibilitas model AI dan untuk memanfaatkan model gratis atau berbayar.
-
-## 3. Tumpukan Teknologi
-
--   **Bahasa:** Python 3.10+
--   **Pustaka Utama:**
-    -   `requests`: Klien HTTP
-    -   `jira-python`: Interaksi dengan Jira API
-    -   `python-gitlab`: Interaksi dengan GitLab API
-    -   `openai`: Interaksi dengan API yang kompatibel dengan OpenAI (termasuk OpenRouter)
-    -   `python-dotenv`: Manajemen variabel lingkungan
-
-## 4. Instalasi dan Setup
-
-### Langkah 1: Clone Repositori
+## ⚡ Quick Start
 
 ```bash
-git clone <URL_REPOSITORI_ANDA>
-cd <NAMA_DIREKTORI_PROYEK>
-```
+# 1. Clone & masuk direktori
+git clone https://github.com/your-repo/automated-code-reviewer.git
+cd automated-code-reviewer
 
-### Langkah 2: Buat dan Aktifkan Virtual Environment
-
-```bash
-# Untuk Windows
+# 2. Setup virtual environment
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # macOS/Linux
 
-# Untuk macOS/Linux
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### Langkah 3: Instal Dependensi
-
-```bash
+# 3. Install dependencies
 pip install -r requirements.txt
-```
 
-## 5. Konfigurasi
+# 4. Setup konfigurasi
+copy .env.example .env        # Windows
+# cp .env.example .env        # macOS/Linux
 
-1.  Salin file contoh `.env.example` menjadi file `.env`.
-    ```bash
-    # Untuk Windows
-    copy .env.example .env
+# 5. Edit file .env dengan kredensial Anda (lihat bagian Konfigurasi di bawah)
 
-    # Untuk macOS/Linux
-    cp .env.example .env
-    ```
-
-2.  Buka file `.env` dan isi semua variabel yang diperlukan:
-    -   `JIRA_SERVER`: URL instance Jira Anda.
-    -   `JIRA_PAT`: Personal Access Token Jira Anda.
-    -   `GITLAB_SERVER`: URL instance GitLab Anda.
-    -   `GITLAB_PRIVATE_TOKEN`: Personal Access Token GitLab dengan scope `api`.
-    -   `AI_SERVICE_PROVIDER`: Diatur ke `openai` secara default.
-    -   `OPENAI_API_KEY`: Kunci API OpenRouter Anda (misalnya, `sk-or-v1-...`).
-    -   `OPENAI_BASE_URL`: URL dasar API OpenRouter (`https://openrouter.ai/api/v1`).
-
-## 6. Cara Menjalankan Aplikasi
-
-Jalankan `main.py` dari terminal dengan argumen `--ticket` diikuti oleh ID tiket Jira.
-
-**Contoh:**
-```bash
-python main.py --ticket "PROJ-123"
-```
-
-Aplikasi akan menggunakan `openai` (dikonfigurasi untuk OpenRouter) secara default. Jika Anda ingin menggunakan penyedia lain (misalnya, `gemini`), Anda dapat menentukannya dengan *flag* `--ai-provider`.
-
-**Contoh dengan penyedia yang berbeda:**
-```bash
+# 6. Jalankan!
 python main.py --ticket "PROJ-123" --ai-provider gemini
 ```
 
-Aplikasi akan menjalankan alur kerja dan menampilkan log proses di terminal. Jika berhasil, sebuah komentar baru akan muncul di tiket Jira yang ditentukan.
+## 📋 Konfigurasi (.env)
+
+Buat file `.env` berdasarkan `.env.example` dan isi:
+
+```env
+# Jira
+JIRA_SERVER="https://your-jira.atlassian.net"
+JIRA_PAT="your_jira_personal_access_token"
+
+# GitLab
+GITLAB_SERVER="https://gitlab.com"
+GITLAB_PRIVATE_TOKEN="your_gitlab_token"
+
+# AI Provider (pilih salah satu: gemini atau openai)
+AI_SERVICE_PROVIDER="gemini"
+
+# Untuk Gemini
+GEMINI_API_KEY="your_gemini_api_key"
+
+# Untuk OpenAI/OpenRouter
+OPENAI_API_KEY="your_openai_key"
+OPENAI_BASE_URL="https://openrouter.ai/api/v1"
+```
+
+### Cara Mendapatkan API Keys:
+| Service | Cara Mendapatkan |
+|---------|------------------|
+| **Gemini** | [Google AI Studio](https://aistudio.google.com/apikey) - Gratis |
+| **Jira PAT** | Profile → Personal Access Tokens → Create token |
+| **GitLab Token** | Settings → Access Tokens → Create dengan scope `api` |
+
+## 🚀 Cara Penggunaan
+
+### Review Tiket Jira
+```bash
+# Menggunakan Gemini (default)
+python main.py --ticket "PCC-1234" --ai-provider gemini
+
+# Menggunakan OpenAI/OpenRouter
+python main.py --ticket "PCC-1234" --ai-provider openai
+```
+
+### Review Local Repository
+```bash
+python main.py --local-repo-path "C:\path\to\repo" --commit-sha "abc123" --ai-provider gemini
+```
+
+## ✨ Fitur
+
+- 🔍 **Auto-detect bahasa** - Java, JavaScript, Python, dll
+- 🇮🇩 **Output Bahasa Indonesia** - Hasil review dalam Bahasa Indonesia
+- 📝 **Komentar actionable** - Langsung dengan kode perbaikan copy-paste
+- 🔗 **Smart URL detection** - Mengambil link commit/MR terakhir dari komentar Jira
+- ⚡ **Multi AI provider** - Support Gemini dan OpenAI/OpenRouter
+
+## 📁 Struktur Proyek
+
+```
+automated-code-reviewer/
+├── main.py              # Entry point aplikasi
+├── config/
+│   └── settings.py      # Konfigurasi environment
+├── services/
+│   ├── ai_service.py    # Koneksi ke AI (Gemini/OpenAI)
+│   ├── jira_service.py  # Koneksi ke Jira
+│   ├── gitlab_service.py# Koneksi ke GitLab
+│   └── git_service.py   # Git operations
+├── prompts/
+│   └── code_review_prompt.txt  # Template prompt AI
+├── requirements.txt     # Python dependencies
+└── .env.example         # Template konfigurasi
+```
+
+## 🛠️ Requirements
+
+- Python 3.10+
+- Akses ke Jira dan GitLab
+- API Key Gemini atau OpenAI
+
+## 📄 License
+
+MIT License
