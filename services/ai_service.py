@@ -1,10 +1,10 @@
-import requests
 import openai
 import json
 import re
 import os
 import certifi
 from config import settings
+import google.generativeai as genai
 
 class AIService:
     def __init__(self):
@@ -18,8 +18,10 @@ class AIService:
             self.api_key = settings.GEMINI_API_KEY
             if not self.api_key:
                 raise ValueError("GEMINI_API_KEY is not set for Gemini provider.")
-            self.model_name = 'gemini-pro'
-            print("AIService initialized with Google Gemini (via REST API).")
+            genai.configure(api_key=self.api_key)
+            self.model_name = 'gemini-2.5-pro'
+            self.client = genai.GenerativeModel(self.model_name)
+            print(f"AIService initialized with Google Gemini ({self.model_name}).")
         elif self.provider == "openai":
             self.api_key = settings.OPENAI_API_KEY
             if not self.api_key:
@@ -54,19 +56,13 @@ class AIService:
         return text
 
     def _call_gemini_api(self, prompt):
-        """Makes a direct REST API call to the Gemini API."""
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
-        headers = {"Content-Type": "application/json"}
-        data = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "response_mime_type": "application/json",
-            }
-        }
-        # Use certifi's certificates for SSL verification
-        response = requests.post(url, headers=headers, json=data, verify=certifi.where())
-        response.raise_for_status()
-        return response.json()['candidates'][0]['content']['parts'][0]['text']
+        """Makes a call to the Gemini API using the official Google SDK."""
+        # The response_mime_type can be set via generation_config
+        generation_config = genai.types.GenerationConfig(
+            response_mime_type="application/json"
+        )
+        response = self.client.generate_content(prompt, generation_config=generation_config)
+        return response.text
 
     def analyze_code_diff(self, code_diff):
         """

@@ -9,7 +9,7 @@ jira
 python-gitlab
 
 # LLM Connectors
-google-genai
+google-generativeai
 openai
 # anthropic
 
