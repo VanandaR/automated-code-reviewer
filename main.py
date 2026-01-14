@@ -200,7 +200,7 @@ def main_workflow(ticket_id):
                 print("   Transition to 'Revisi' successful. Looking for the cloned ticket...")
                 # Give Jira a moment to create the clone and the link
                 import time
-                time.sleep(20) # 20-second delay
+                time.sleep(10) # 10-second delay
                 
                 cloned_issue = jira_service.find_cloned_issue(ticket_id)
                 if cloned_issue:
