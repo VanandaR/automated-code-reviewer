@@ -21,6 +21,12 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 # Local Git Repository Path for cloning
 LOCAL_GIT_REPO_PATH = os.getenv("LOCAL_GIT_REPO_PATH", "temp_repos")
 
+# --- NEW ---
+# Workflow Configuration
+# Controls whether to automatically transition a ticket when AI recommends 'Revisi'
+AUTO_TRANSITION_REVISI = os.getenv("AUTO_TRANSITION_REVISI", "false").lower() == "true"
+
+
 def validate_config():
     """Validates that all necessary configuration variables are set."""
     required_vars = {

@@ -193,20 +193,23 @@ def main_workflow(ticket_id):
         print("   AI conclusion contains 'Staging'. Attempting to transition ticket...")
         jira_service.transition_ticket_status(ticket_id, "➔ Staging")
     elif 'revisi' in conclusion:
-        print("   AI conclusion contains 'Revisi'. Attempting to transition ticket...")
-        transition_successful = jira_service.transition_ticket_status(ticket_id, "➔ Revisi")
-        if transition_successful:
-            print("   Transition to 'Revisi' successful. Looking for the cloned ticket...")
-            # Give Jira a moment to create the clone and the link
-            import time
-            time.sleep(20) # 20-second delay
-            
-            cloned_issue = jira_service.find_cloned_issue(ticket_id)
-            if cloned_issue:
-                print(f"   Found cloned ticket: {cloned_issue.key}. Appending analysis to its description.")
-                jira_service.update_issue_description(cloned_issue.key, jira_comment)
-            else:
-                print("   Could not find a cloned ticket.")
+        if settings.AUTO_TRANSITION_REVISI:
+            print("   AI conclusion contains 'Revisi' and AUTO_TRANSITION_REVISE is enabled. Attempting to transition ticket...")
+            transition_successful = jira_service.transition_ticket_status(ticket_id, "➔ Revisi")
+            if transition_successful:
+                print("   Transition to 'Revisi' successful. Looking for the cloned ticket...")
+                # Give Jira a moment to create the clone and the link
+                import time
+                time.sleep(20) # 20-second delay
+                
+                cloned_issue = jira_service.find_cloned_issue(ticket_id)
+                if cloned_issue:
+                    print(f"   Found cloned ticket: {cloned_issue.key}. Appending analysis to its description.")
+                    jira_service.update_issue_description(cloned_issue.key, jira_comment)
+                else:
+                    print("   Could not find a cloned ticket.")
+        else:
+            print("   AI conclusion contains 'Revisi', but AUTO_TRANSITION_REVISE is disabled. Skipping transition.")
     else:
         print("   No specific transition keyword ('Staging' or 'Revisi') found in AI conclusion.")
     print("--- STEP 8 COMPLETE ---")
