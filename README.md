@@ -24,7 +24,11 @@ copy .env.example .env        # Windows
 # 5. Edit file .env dengan kredensial Anda (lihat bagian Konfigurasi di bawah)
 
 # 6. Jalankan!
-python main.py --ticket "PROJ-123" --ai-provider gemini
+# Jalankan untuk satu tiket
+python main.py --ticket "PROJ-123"
+
+# Jalankan untuk beberapa tiket sekaligus (pisahkan dengan koma)
+python main.py --ticket "PROJ-123,PROJ-456" --ai-provider openai
 ```
 
 ## 📋 Konfigurasi (.env)
@@ -49,6 +53,11 @@ GEMINI_API_KEY="your_gemini_api_key"
 # Untuk OpenAI/OpenRouter
 OPENAI_API_KEY="your_openai_key"
 OPENAI_BASE_URL="https://openrouter.ai/api/v1"
+
+# --- Workflow Configuration ---
+# Set "true" untuk otomatis klik tombol "Revisi" jika AI merekomendasikan.
+# Tidak mempengaruhi transisi "Staging".
+AUTO_TRANSITION_REVISI="true"
 ```
 
 ### Cara Mendapatkan API Keys:
@@ -60,13 +69,19 @@ OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 
 ## 🚀 Cara Penggunaan
 
-### Review Tiket Jira
+### Review Satu Tiket Jira
 ```bash
-# Menggunakan Gemini (default)
-python main.py --ticket "PCC-1234" --ai-provider gemini
+# Menggunakan provider AI default dari .env
+python main.py --ticket "PCC-1234"
 
-# Menggunakan OpenAI/OpenRouter
+# Menggunakan provider AI spesifik (override .env)
 python main.py --ticket "PCC-1234" --ai-provider openai
+```
+
+### Review Beberapa Tiket Jira Sekaligus
+Pisahkan ID tiket dengan koma.
+```bash
+python main.py --ticket "PCC-1234,PCC-5678,PCC-9012"
 ```
 
 ### Review Local Repository
