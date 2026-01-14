@@ -42,3 +42,54 @@ class JiraService:
         except JIRAError as e:
             print(f"Failed to post comment to ticket {ticket_id}: {e.text}")
             return False
+
+    def transition_ticket_status(self, ticket_id, transition_name):
+        """Transitions a Jira ticket to a new status."""
+        try:
+            transitions = self.client.transitions(ticket_id)
+            transition_id = None
+            for t in transitions:
+                if t['name'].lower() == transition_name.lower():
+                    transition_id = t['id']
+                    break
+            
+            if transition_id:
+                self.client.transition_issue(ticket_id, transition_id)
+                print(f"Successfully transitioned ticket {ticket_id} to '{transition_name}'.")
+                return True
+            else:
+                print(f"Transition '{transition_name}' not found for ticket {ticket_id}.")
+                available_transitions = [t['name'] for t in transitions]
+                print(f"Available transitions: {available_transitions}")
+                return False
+        except JIRAError as e:
+            print(f"Failed to transition ticket {ticket_id}: {e.text}")
+            return False
+
+    def find_cloned_issue(self, original_ticket_id):
+        """Finds the issue that is a clone of the original ticket."""
+        try:
+            issue = self.client.issue(original_ticket_id, expand='issuelinks')
+            for link in issue.fields.issuelinks:
+                if hasattr(link, 'outwardIssue') and link.type.name == 'Cloners':
+                    cloned_issue_key = link.outwardIssue.key
+                    print(f"Found cloned issue: {cloned_issue_key}")
+                    return self.client.issue(cloned_issue_key)
+            print(f"No cloned issue found for ticket {original_ticket_id}.")
+            return None
+        except JIRAError as e:
+            print(f"Error finding cloned issue for {original_ticket_id}: {e.text}")
+            return None
+
+    def update_issue_description(self, ticket_id, new_content):
+        """Appends new content to a Jira ticket's description."""
+        try:
+            issue = self.client.issue(ticket_id)
+            current_description = issue.fields.description or ""
+            updated_description = current_description + "\n\n" + new_content
+            issue.update(fields={'description': updated_description})
+            print(f"Successfully updated description for ticket {ticket_id}.")
+            return True
+        except JIRAError as e:
+            print(f"Failed to update description for ticket {ticket_id}: {e.text}")
+            return False

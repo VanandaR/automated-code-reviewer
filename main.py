@@ -183,6 +183,33 @@ def main_workflow(ticket_id):
     print("\n--- STEP 7: Posting comment to Jira ticket... ---")
     jira_service.post_comment(ticket_id, jira_comment)
     print("--- STEP 7 COMPLETE ---")
+    
+    # --- STEP 8: Transition Jira ticket and handle cloned issue ---
+    print("\n--- STEP 8: Transitioning Jira ticket based on AI conclusion... ---")
+    conclusion = analysis_result.get('conclusion', '').strip().lower()
+    
+    transition_successful = False
+    if 'staging' in conclusion:
+        print("   AI conclusion contains 'Staging'. Attempting to transition ticket...")
+        jira_service.transition_ticket_status(ticket_id, "➔ Staging")
+    elif 'revisi' in conclusion:
+        print("   AI conclusion contains 'Revisi'. Attempting to transition ticket...")
+        transition_successful = jira_service.transition_ticket_status(ticket_id, "➔ Revisi")
+        if transition_successful:
+            print("   Transition to 'Revisi' successful. Looking for the cloned ticket...")
+            # Give Jira a moment to create the clone and the link
+            import time
+            time.sleep(20) # 20-second delay
+            
+            cloned_issue = jira_service.find_cloned_issue(ticket_id)
+            if cloned_issue:
+                print(f"   Found cloned ticket: {cloned_issue.key}. Appending analysis to its description.")
+                jira_service.update_issue_description(cloned_issue.key, jira_comment)
+            else:
+                print("   Could not find a cloned ticket.")
+    else:
+        print("   No specific transition keyword ('Staging' or 'Revisi') found in AI conclusion.")
+    print("--- STEP 8 COMPLETE ---")
 
 
 def main():
