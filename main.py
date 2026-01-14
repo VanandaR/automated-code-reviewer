@@ -223,7 +223,7 @@ def main():
     parser.add_argument(
         "--ticket",
         type=str,
-        help="The Jira ticket ID to analyze (e.g., 'PROJ-123'). Required if --local-repo-path is not provided."
+        help="One or more Jira ticket IDs to analyze, separated by commas (e.g., 'PROJ-123,PROJ-124')."
     )
     parser.add_argument(
         "--local-repo-path",
@@ -244,7 +244,9 @@ def main():
     )
 
     args = parser.parse_args()
-    ticket_id = args.ticket
+    # Accept comma-separated tickets and split them into a list
+    ticket_ids_str = args.ticket
+    ticket_id = ticket_ids_str.split(',') if ticket_ids_str else None
     local_repo_path = args.local_repo_path
     commit_sha = args.commit_sha
     ai_provider = args.ai_provider
@@ -257,9 +259,10 @@ def main():
     # Override the AI service provider from settings if specified in CLI
     settings.AI_SERVICE_PROVIDER = ai_provider
 
+    # Since ticket_id is now a list, we handle it differently
     if ticket_id:
-        print(f"--- Starting analysis for Jira ticket: {ticket_id} using {settings.AI_SERVICE_PROVIDER} ---")
-    else:
+        print(f"--- Starting analysis for Jira tickets: {', '.join(ticket_id)} using {settings.AI_SERVICE_PROVIDER} ---")
+    elif local_repo_path:
         print(f"--- Starting analysis for local repository: {local_repo_path} (Commit: {commit_sha}) using {settings.AI_SERVICE_PROVIDER} ---")
 
     try:
@@ -267,15 +270,26 @@ def main():
         if local_repo_path and commit_sha:
             local_workflow(local_repo_path, commit_sha)
         elif ticket_id:
-            main_workflow(ticket_id)
+            # Loop through each ticket ID provided
+            for single_ticket_id in ticket_id:
+                try:
+                    print(f"\n\n--- Processing ticket: {single_ticket_id} ---")
+                    main_workflow(single_ticket_id)
+                    print(f"--- Successfully completed analysis for ticket: {single_ticket_id} ---")
+                except Exception as e:
+                    # Log the error for the specific ticket and continue with the next one
+                    print(f"\n--- An error occurred while processing ticket {single_ticket_id}: {e} ---", file=sys.stderr)
+                    # Optionally, continue to the next ticket instead of exiting
+                    continue
     except (ValueError, Exception) as e:
-        print(f"\nAn error occurred: {e}", file=sys.stderr)
+        # This will catch initialization errors, e.g., config validation
+        print(f"\nAn error occurred during initial setup: {e}", file=sys.stderr)
         sys.exit(1)
 
     if ticket_id:
-        print(f"\n--- Analysis for ticket {ticket_id} completed successfully using {settings.AI_SERVICE_PROVIDER}. ---")
-    else:
-        print(f"\n--- Analysis for local repository {local_repo_path} (Commit: {commit_sha}) completed successfully using {settings.AI_SERVICE_PROVIDER}. ---")
+        print(f"\n\n--- All ticket processing completed. ---")
+    elif local_repo_path:
+        print(f"\n--- Analysis for local repository {local_repo_path} completed successfully. ---")
 
 def local_workflow(repo_path, commit_sha):
     """Workflow for analyzing a local Git repository."""
