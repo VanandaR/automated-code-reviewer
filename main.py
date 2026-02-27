@@ -14,23 +14,15 @@ from services.gitlab_service import GitLabService
 from services.ai_service import AIService
 from services.git_service import GitService
 
-def extract_mr_url(text):
-    """Extracts the first GitLab Merge Request URL from a given text."""
-    # Simplified, more robust regex to find MR URLs inside Jira's link format.
-    # This pattern is more flexible:
-    # - It can handle an optional "mr:" prefix.
-    # - It handles both "/-/merge_requests/" and "/merge_requests/".
-    # - It captures the URL correctly whether it's in Jira's link format or plain text.
+def extract_mr_urls(text):
+    """Extracts all GitLab Merge Request URLs from a given text."""
     pattern = r"\[?(https?://[^\]|]+(?:/-)?/merge_requests/\d+)"
-    match = re.search(pattern, text)
-    return match.group(1) if match else None
+    return re.findall(pattern, text)
 
-def extract_commit_url(text):
-    """Extracts the first GitLab Commit URL from a given text."""
-    # Simplified, more robust regex to find commit URLs inside Jira's link format.
+def extract_commit_urls(text):
+    """Extracts all GitLab Commit URLs from a given text."""
     pattern = r"\[?(https?://[^\]|]+/commit/[a-f0-9]+)"
-    match = re.search(pattern, text)
-    return match.group(1) if match else None
+    return re.findall(pattern, text)
 
 def format_analysis_category(category_name, findings):
     """Helper function to format a single category of findings."""
@@ -121,98 +113,118 @@ def main_workflow(ticket_id):
         
     assignee_name = assignee.name
 
-    print("\n--- STEP 3: Searching for GitLab URL (MR or Commit)... ---")
+    print("\n--- STEP 3: Finding all new GitLab URLs to review... ---")
     
-    # Create a list of texts to search: description first, then all comments
-    texts_to_search = [issue.fields.description or ""]
+    # 1. Extract all unique URLs from comments only (not from description)
+    all_comments = []
     if hasattr(issue.fields, 'comment') and issue.fields.comment.comments:
-        texts_to_search.extend([comment.body for comment in issue.fields.comment.comments])
-
-    # Collect all URLs found, we'll use the LAST one
-    all_urls = []
-    for text in texts_to_search:
-        # Find all MR URLs in this text
-        mr_url = extract_mr_url(text)
-        if mr_url:
-            all_urls.append((mr_url, "MR"))
-        
-        # Find all Commit URLs in this text
-        commit_url = extract_commit_url(text)
-        if commit_url:
-            all_urls.append((commit_url, "Commit"))
-
-    gitlab_url = None
-    url_type = None
+        all_comments.extend([comment.body for comment in issue.fields.comment.comments])
     
-    if all_urls:
-        # Take the LAST URL found
-        gitlab_url, url_type = all_urls[-1]
-        print(f"   Found {len(all_urls)} URL(s), using last one:")
-        print(f"   {url_type} URL: {gitlab_url}")
-
-    if not gitlab_url:
-        print("--- EXIT: No GitLab URL found. ---")
+    all_found_urls = set()
+    for text in all_comments:
+        for url in extract_mr_urls(text):
+            all_found_urls.add((url, "MR"))
+        for url in extract_commit_urls(text):
+            all_found_urls.add((url, "Commit"))
+            
+    if not all_found_urls:
+        print("--- EXIT: No GitLab URLs found in the ticket. ---")
         return
+        
+    # 2. Find URLs that have already been reviewed by our bot
+    bot_comments = [comment.body for comment in issue.fields.comment.comments if "h2. 🤖 Hasil Code Review" in comment.body]
+    reviewed_urls = set()
+    for comment_body in bot_comments:
+        # Extract URLs from the bot's past comments
+        # This re-uses the same extraction logic
+        for url in extract_mr_urls(comment_body):
+            reviewed_urls.add(url)
+        for url in extract_commit_urls(comment_body):
+            reviewed_urls.add(url)
+            
+    # 3. Determine which URLs are new and need reviewing
+    urls_to_review = [item for item in all_found_urls if item[0] not in reviewed_urls]
+    
+    print(f"   Found {len(all_found_urls)} unique URLs in total.")
+    print(f"   Found {len(reviewed_urls)} URLs already reviewed.")
+    
+    if not urls_to_review:
+        print("--- EXIT: No new URLs to review. ---")
+        return
+        
+    print(f"   Found {len(urls_to_review)} new URLs to review.")
     print("--- STEP 3 COMPLETE ---")
 
-    print("\n--- STEP 4: Fetching code diff from GitLab... ---")
-    code_diff = None
-    if url_type == "MR":
-        # For MRs, we still rely on GitLab API as local git doesn't have direct MR concept
-        code_diff = diff_fetcher.fetch_gitlab_mr_diff(gitlab_url)
-    elif url_type == "Commit":
-        # For Commits, DiffFetcher will decide between local Git or GitLab API
-        code_diff = diff_fetcher.fetch_commit_diff(gitlab_url)
-
-    if not code_diff:
-        print("--- EXIT: Failed to fetch code diff. ---")
-        return
-    print("--- STEP 4 COMPLETE ---")
-
-    print("\n--- STEP 5: Analyzing code diff with AI... ---")
-    analysis_result = ai_service.analyze_code_diff(code_diff)
-    if not analysis_result:
-        print("--- EXIT: AI analysis failed or returned no result. ---")
-        return
-    print("--- STEP 5 COMPLETE ---")
-
-    print("\n--- STEP 6: Formatting comment for Jira... ---")
-    jira_comment = format_comment(analysis_result, gitlab_url, assignee_name)
-    print("--- STEP 6 COMPLETE ---")
+    # --- Loop through each new URL and process it ---
+    any_transition_recommended = False
+    final_conclusion = None
     
-    print("\n--- STEP 7: Posting comment to Jira ticket... ---")
-    jira_service.post_comment(ticket_id, jira_comment)
-    print("--- STEP 7 COMPLETE ---")
-    
-    # --- STEP 8: Transition Jira ticket and handle cloned issue ---
-    print("\n--- STEP 8: Transitioning Jira ticket based on AI conclusion... ---")
-    conclusion = analysis_result.get('conclusion', '').strip().lower()
-    
-    transition_successful = False
-    if 'staging' in conclusion:
-        print("   AI conclusion contains 'Staging'. Attempting to transition ticket...")
-        jira_service.transition_ticket_status(ticket_id, "➔ Staging")
-    elif 'revisi' in conclusion:
-        if settings.AUTO_TRANSITION_REVISI:
-            print("   AI conclusion contains 'Revisi' and AUTO_TRANSITION_REVISE is enabled. Attempting to transition ticket...")
-            transition_successful = jira_service.transition_ticket_status(ticket_id, "➔ Revisi")
-            if transition_successful:
-                print("   Transition to 'Revisi' successful. Looking for the cloned ticket...")
-                # Give Jira a moment to create the clone and the link
-                import time
-                time.sleep(10) # 10-second delay
-                
-                cloned_issue = jira_service.find_cloned_issue(ticket_id)
-                if cloned_issue:
-                    print(f"   Found cloned ticket: {cloned_issue.key}. Appending analysis to its description.")
-                    jira_service.update_issue_description(cloned_issue.key, jira_comment)
-                else:
-                    print("   Could not find a cloned ticket.")
-        else:
-            print("   AI conclusion contains 'Revisi', but AUTO_TRANSITION_REVISE is disabled. Skipping transition.")
+    for i, (gitlab_url, url_type) in enumerate(urls_to_review, 1):
+        print(f"\n--- PROCESSING URL {i}/{len(urls_to_review)}: {gitlab_url} ---")
+        
+        print("\n--- STEP 4: Fetching code diff from GitLab... ---")
+        code_diff = None
+        if url_type == "MR":
+            code_diff = diff_fetcher.fetch_gitlab_mr_diff(gitlab_url)
+        elif url_type == "Commit":
+            code_diff = diff_fetcher.fetch_commit_diff(gitlab_url)
+
+        if not code_diff:
+            print(f"--- SKIP URL: Failed to fetch code diff for {gitlab_url}. ---")
+            continue # Skip to the next URL
+        print("--- STEP 4 COMPLETE ---")
+
+        print("\n--- STEP 5: Analyzing code diff with AI... ---")
+        analysis_result = ai_service.analyze_code_diff(code_diff)
+        if not analysis_result:
+            print(f"--- SKIP URL: AI analysis failed for {gitlab_url}. ---")
+            continue
+        print("--- STEP 5 COMPLETE ---")
+
+        print("\n--- STEP 6: Formatting comment for Jira... ---")
+        jira_comment = format_comment(analysis_result, gitlab_url, assignee_name)
+        print("--- STEP 6 COMPLETE ---")
+        
+        print("\n--- STEP 7: Posting comment to Jira ticket... ---")
+        jira_service.post_comment(ticket_id, jira_comment)
+        print("--- STEP 7 COMPLETE ---")
+        
+        # Store the conclusion for the final transition decision
+        conclusion = analysis_result.get('conclusion', '').strip().lower()
+        if 'staging' in conclusion or 'revisi' in conclusion:
+            any_transition_recommended = True
+            final_conclusion = conclusion
+
+    # --- STEP 8: Perform a single transition based on the results of all reviews ---
+    if any_transition_recommended and final_conclusion:
+        print("\n--- STEP 8: Transitioning Jira ticket based on overall conclusions... ---")
+        if 'staging' in final_conclusion:
+            print("   At least one review recommended 'Staging'. Attempting to transition ticket...")
+            jira_service.transition_ticket_status(ticket_id, "➔ Staging")
+        elif 'revisi' in final_conclusion:
+            if settings.AUTO_TRANSITION_REVISI:
+                print("   At least one review recommended 'Revisi' and auto-transition is enabled. Attempting...")
+                transition_successful = jira_service.transition_ticket_status(ticket_id, "➔ Revisi")
+                if transition_successful:
+                    print("   Transition to 'Revisi' successful. Looking for the cloned ticket...")
+                    import time
+                    time.sleep(10) # 10-second delay
+                    
+                    cloned_issue = jira_service.find_cloned_issue(ticket_id)
+                    if cloned_issue:
+                        # For the cloned issue, we post ALL comments from this run.
+                        # This is a simplification; a more complex implementation might merge them.
+                        print(f"   Found cloned ticket: {cloned_issue.key}. Appending analysis to its description.")
+                        # To keep it simple, we'll just add the final comment that triggered the transition.
+                        # A better approach might be to collect all jira_comment strings and join them.
+                        jira_service.update_issue_description(cloned_issue.key, jira_comment)
+                    else:
+                        print("   Could not find a cloned ticket.")
+            else:
+                print("   A 'Revisi' was recommended, but auto-transition is disabled.")
+        print("--- STEP 8 COMPLETE ---")
     else:
-        print("   No specific transition keyword ('Staging' or 'Revisi') found in AI conclusion.")
-    print("--- STEP 8 COMPLETE ---")
+        print("\n--- STEP 8: No transition recommended in any of the new reviews. ---")
 
 
 def main():
