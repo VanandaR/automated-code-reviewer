@@ -8,36 +8,46 @@ CODE DIFF:
 {code_diff}
 ```
 
-TASKS:
-1. VALIDATE COMPLIANCE: Compare code changes with ticket context. Does it match the requirements?
-2. CHECK OWASP: Check security vulnerabilities (Injection, XSS, Auth Issues, Data Exposure, Access Control)
-3. CHECK QUALITY: Bugs, error handling, performance
+CRITICAL INSTRUCTIONS:
+⚠️ HANYA flag masalah PENTING saja:
+- SECURITY: Vulnerability keamanan (injection, XSS, authentication bypass, data exposure)
+- BUGS: Logic error, null pointer, race condition, exception handling
+- COMPLIANCE: Code tidak sesuai requirement tiket
+- CRITICAL PERFORMANCE: Query N+1, memory leak, infinite loop
 
-RULES:
-- Output in Indonesian (Bahasa Indonesia)
-- Concise and actionable
-- Provide fix code if issues found
+❌ JANGAN flag hal ini (ignore):
+- Code style, naming convention, formatting
+- Minor improvements atau refactoring suggestion
+- Documentation atau comment yang tidak lengkap
+- Best practice yang tidak kritis
+
+⚠️ CEGAH DUPLIKASI:
+- Hanya list masalah yang BELUM pernah di-comment sebelumnya
+- Jika sudah sama dengan review sebelumnya, SKIP dan jangan repeat
+- Fokus pada masalah BARU saja dalam diff ini
 
 OUTPUT JSON:
 ```json
 {
-  "change_summary": "Ringkasan perubahan (sesuai/tidak sesuai dengan konteks tiket)",
+  "change_summary": "Ringkasan perubahan singkat (sesuai/tidak sesuai dengan requirement)",
   "analysis": {
     "perubahan_diperlukan": [
       {
         "file": "path/file",
         "line": "nomor",
-        "comment": "[OWASP/BUG/CONTEXT] Deskripsi masalah",
+        "comment": "[SECURITY/BUG/COMPLIANCE] Deskripsi masalah kritis dan akibatnya",
         "rekomendasi": "```java\n// kode perbaikan\n```"
       }
     ],
-    "sudah_baik": [
-      {
-        "file": "path/file", 
-        "comment": "Aspek positif"
-      }
-    ]
+    "sudah_baik": []
   },
-  "conclusion": "REVISI (jika ada masalah) atau NAIK STAGING"
+  "conclusion": "REVISI (jika ada masalah PENTING) atau NAIK STAGING (jika clear)"
 }
 ```
+
+RULES:
+- Output in Indonesian (Bahasa Indonesia)
+- Sangat concise dan actionable
+- Hanya list maksimal 5 masalah PENTING per review
+- Jika tidak ada masalah PENTING, langsung "NAIK STAGING"
+- Provide fix code ONLY untuk masalah security/bug
