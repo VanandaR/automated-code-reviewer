@@ -12,7 +12,7 @@ class GitLabService:
                 private_token=settings.GITLAB_PRIVATE_TOKEN,
                 ssl_verify=False
             )
-            # self.client.auth()
+            self.client.auth()
             print("Successfully connected to GitLab (SSL verification disabled).")
         except gitlab.exceptions.GitlabAuthenticationError:
             print("GitLab authentication failed. Please check your token.")
@@ -95,7 +95,8 @@ class GitLabService:
     def _parse_project_path_from_commit_url(self, url):
         """Parses the project path from a GitLab Commit URL."""
         # This regex is designed to capture the full path including groups/subgroups
-        match = re.search(r'https?://[^/]+/(.*?)/commit/[a-f0-9]+', url)
+        # Added (?:/-)? to handle GitLab's dash-prefix in some URL formats
+        match = re.search(r'https?://[^/]+/(.*?)(?:/-)?/commit/[a-f0-9]+', url)
         return match.group(1) if match else None
 
     def _parse_mr_iid_from_url(self, url):

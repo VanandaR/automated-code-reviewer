@@ -19,19 +19,22 @@ class AIService:
             if not self.api_key:
                 raise ValueError("GEMINI_API_KEY is not set for Gemini provider.")
             genai.configure(api_key=self.api_key)
-            self.model_name = 'gemini-2.5-pro'
+            self.model_name = settings.AI_MODEL_NAME or 'gemini-pro-latest'
             self.client = genai.GenerativeModel(self.model_name)
             print(f"AIService initialized with Google Gemini ({self.model_name}).")
         elif self.provider == "openai":
             self.api_key = settings.OPENAI_API_KEY
             if not self.api_key:
                 raise ValueError("OPENAI_API_KEY is not set for OpenAI provider.")
+            import httpx
+            http_client = httpx.Client(verify=False)
             self.client = openai.OpenAI(
                 api_key=self.api_key,
-                base_url=settings.OPENAI_BASE_URL
+                base_url=settings.OPENAI_BASE_URL,
+                http_client=http_client
             )
-            self.model_name = "gpt-4o-mini"
-            print("AIService initialized with OpenAI.")
+            self.model_name = settings.AI_MODEL_NAME or "vertex_ai/gemini-3-flash-preview"
+            print(f"AIService initialized with OpenAI ({self.model_name}).")
         else:
             raise ValueError(f"Unsupported AI_SERVICE_PROVIDER: {self.provider}. Must be 'gemini' or 'openai'.")
         
@@ -58,8 +61,10 @@ class AIService:
     def _call_gemini_api(self, prompt):
         """Makes a call to the Gemini API using the official Google SDK."""
         # The response_mime_type can be set via generation_config
+        # temperature=0 untuk output yang deterministic dan konsisten
         generation_config = genai.types.GenerationConfig(
-            response_mime_type="application/json"
+            response_mime_type="application/json",
+            temperature=0
         )
         response = self.client.generate_content(prompt, generation_config=generation_config)
         return response.text
@@ -84,7 +89,7 @@ class AIService:
                     model=self.model_name,
                     messages=[{"role": "user", "content": full_prompt}],
                     response_format={"type": "json_object"},
-                    temperature=0.1
+                    temperature=0
                 )
                 response_text = chat_completion.choices[0].message.content
 

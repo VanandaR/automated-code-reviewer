@@ -14,6 +14,7 @@ GITLAB_PRIVATE_TOKEN = os.getenv("GITLAB_PRIVATE_TOKEN")
 
 # AI Model Configuration
 AI_SERVICE_PROVIDER = os.getenv("AI_SERVICE_PROVIDER", "openai") # Default to 'openai'
+AI_MODEL_NAME = os.getenv("AI_MODEL_NAME") # Can be empty, service will use default if not set
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
